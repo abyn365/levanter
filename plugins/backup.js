@@ -23,8 +23,12 @@ if (process.env.VPS) {
         )
       }
       if (match === 'now') {
-        await backupFilesToDrive(undefined, undefined, message.id)
-        return await message.send('backup completed successfully!')
+        try {
+          await backupFilesToDrive(undefined, message, message.id)
+          return await message.send('backup completed successfully!')
+        } catch (error) {
+          return await message.send(`backup failed: ${error.message}`)
+        }
       }
 
       if (match === 'auth') {
@@ -106,4 +110,3 @@ bot(
     return await message.send(lang.plugins.gdrive.url_prompt)
   }
 )
-
