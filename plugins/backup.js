@@ -8,6 +8,31 @@ const {
   uploadFile,
   lang,
 } = require('../lib/')
+const { execFile } = require('child_process')
+const fs = require('fs-extra')
+const path = require('path')
+const { promisify } = require('util')
+
+const execFileAsync = promisify(execFile)
+
+async function createLocalBackupArchive() {
+  const tmpDir = path.join(process.cwd(), 'tmp')
+  await fs.ensureDir(tmpDir)
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const archivePath = path.join(tmpDir, `levanter-backup-${timestamp}.tar.gz`)
+
+  await execFileAsync('tar', [
+    '--exclude=.git',
+    '--exclude=node_modules',
+    '--exclude=tmp',
+    '-czf',
+    archivePath,
+    '.',
+  ])
+
+  return archivePath
+}
 
 if (process.env.VPS) {
   bot(
@@ -23,11 +48,19 @@ if (process.env.VPS) {
         )
       }
       if (match === 'now') {
+        let archivePath
         try {
-          await backupFilesToDrive(undefined, message, message.id)
+          await message.send('_Creating local backup archive..._')
+          archivePath = await createLocalBackupArchive()
+          await message.send('_Uploading backup archive to Drive..._')
+          await uploadFile(archivePath, undefined, message.id)
           return await message.send('backup completed successfully!')
         } catch (error) {
           return await message.send(`backup failed: ${error.message}`)
+        } finally {
+          if (archivePath) {
+            await fs.remove(archivePath).catch(() => {})
+          }
         }
       }
 
